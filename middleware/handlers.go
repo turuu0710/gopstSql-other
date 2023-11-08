@@ -19,7 +19,7 @@ type response struct {
 	Message string `json:"message, omitempty`
 }
 
-func CreateConnection() *sql.DB {
+func createConnection() *sql.DB {
 	err := godotenv.Load("env")
 
 	if err != nil {
@@ -48,7 +48,7 @@ func CreateStock(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal("Unable to decode the request body. v%", err)
 	}
-	res := insertStock(stock)
+	insertID := insertStock(stock)
 
 	res := response{
 		ID:      insertID,
@@ -107,6 +107,84 @@ func UpdateStock(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func DeleteStock() {
+func DeleteStock(w http.ResponseWriter, r *http.Request) {
+
+	params := mux.Vars(r)
+	id, err := strconv.ParseInt(params["id"])
+	if err != nil {
+		log.Fatalf("Unable to convert string to int. %v", err)
+	}
+
+	deleteRows := deleteStock(int64(id))
+
+	msg := fmt.Sprintf("Stock deleted successfully. Total rows/records %v", deleteRows)
+
+	res := response{
+		ID:      int64(id),
+		Message: msg,
+	}
+
+	json.NewEncoder(w).Encode(res)
+}
+
+func insertStock(stock models.Stock) int64 {
+	db := createConnection()
+	defer db.Close()
+	sqlStatement := `INSERT INTO stocks(name, price, company) VALUES ($1, $2, $3) RETURNING stockid`
+	var id int64
+
+	err := db.QueryRow(sqlStatement, stock.Name, stock.Price, stock.Company).Scan(&id)
+	if err != nil {
+		log.Fatalf("Unable to execute the query. %v", err)
+	}
+
+	fmt.Printf("Inserted a single record %v", id)
+}
+
+func getStock(id int64) (models.Stock, error) {
+	db := createConnection()
+
+	defer db.Close()
+
+	var stock models.Stock
+	sqlStatement := `SELECT * FROM stocks WHERE stockid=$1`
+
+	row := db.QueryRow(sqlStatement, id)
+
+	err := row.Scan(&stock.StockID, &stock.Name, &stock.Price, &stock.Company)
+
+	switch err {
+	case sql.ErrNoRows:
+		fmt.Println("No rows were returned!")
+		return stock, nil
+	case nil:
+		return stock, nil
+	default:
+		log.Fatalf("Unable to scan the row. %v", err)
+	}
+	return stock, err
+
+}
+
+func getAllStocks() ([]models.Stock, error) {
+	db := createConnection()
+	defer db.Close()
+	var stocks []models.Stock
+	sqlStatement := `SELECT * FROM stocks WHERE stocks`
+	rows, err := db.Query(sqlStatement)
+
+	if err != nil {
+		log.Fatalf("Unable ti execute the query. %v", err)
+	}
+
+	defer rows.Close()
+
+}
+
+func updateStock(id int64, stock models.Stock) int64 {
+
+}
+
+func deleteStock(id int64) int64 {
 
 }
